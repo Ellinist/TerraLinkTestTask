@@ -3,14 +3,61 @@ using TerraLinkTestTask.Interfaces;
 
 namespace TerraLinkTestTask.Implementations
 {
-    public class DocumentsQueue : IDocumentsQueue, IObservable, IDisposable
+    /// <summary>
+    /// Класс реализации отправки документов из очереди документов через заданные промежутки времени.
+    /// </summary>
+    public class DocumentsQueue : IDocumentsQueue, IDisposable, IProgress<int>
     {
-        private event Action<IObserver> StartDocumentSending; // Начало отправки документов
         #region PRIVATE FIELDS
         private readonly IExternalSystemConnector _externalSystemConnector;
         private CancellationTokenSource _cancelTokenSource;
         private CancellationToken _cancellationToken;
+
+        private List<Document> _documentsInQueue = new(); // Документы в очереди
         #endregion
+
+        #region PROPS
+        /// <summary>
+        /// Интервал отправки документов.
+        /// </summary>
+        public int TimerSpan { get; set; } = 5; // Для задания извне (в секундах)
+        #endregion
+
+        /// <summary>
+        /// Цикл для таймера отправки документов
+        /// </summary>
+        private void TimerProcess()
+        {
+            Task.Factory.StartNew(() =>
+            {
+                // Цикл в другом потоке, чтобы не нарушать наполнение очереди документов
+                while (!_cancellationToken.IsCancellationRequested)
+                {
+                    var t = Task.Run(async () =>
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(TimerSpan)); // Ожидание
+                    });
+                    t.Wait();
+                    SendProcess();
+                }
+            });
+        }
+
+        /// <summary>
+        /// Метод отправки документов из очереди
+        /// </summary>
+        private void SendProcess()
+        {
+            if (_documentsInQueue.Count == 0) return;
+
+            var docsBlock = _documentsInQueue.Take(10).ToList();
+            _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
+            // Чистка отправленных документов
+            foreach (var doc in docsBlock)
+            {
+                _documentsInQueue.Remove(doc);
+            }
+        }
 
         /// <summary>
         /// Ставит документ в очередь на отправку.
@@ -20,53 +67,24 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-
+            _documentsInQueue.Add(document);
         }
 
         /// <summary>
-        /// Временной цикл отправки документов
+        /// Освобождение ресурсов и остановка процессов
         /// </summary>
-        /// <param name="obs"></param>
-        private void TimeCycle(IObserver obs)
-        {
-            //Task.Factory.StartNew(() =>
-            //{
-            //    Thread.Sleep(TimerSpan);
-
-            //    if (Documents.Count < 10) return; // Если документов в очереди меньше 10 продолжаем накопление
-
-            //    while (Documents.Count > 0)
-            //    {
-            //        var docs = Documents.Take(10).ToList();
-
-            //        SendDocumentFromQueue(obs, docs);
-            //        DocumentProgress.Report(docs.Count);
-
-            //        foreach (var doc in docs)
-            //        {
-            //            Documents.Remove(doc);
-            //        }
-            //        foreach (var observer in Observers.ToList())
-            //        {
-            //            RemoveObserver(observer);
-            //        }
-            //    }
-            //});
-        }
-
-        public void AddObserver(IObserver o)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void RemoveObserver(IObserver o)
-        {
-            throw new NotImplementedException();
-        }
-
         public void Dispose()
         {
-            throw new NotImplementedException();
+            _cancelTokenSource.Cancel();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="value"></param>
+        public void Report(int value)
+        {
+            
         }
 
 
@@ -75,15 +93,20 @@ namespace TerraLinkTestTask.Implementations
 
 
         #region CTOR
+        /// <summary>
+        /// Конструктор.
+        /// </summary>
+        /// <param name="externalSystemConnector">
+        /// Коннектор отправки документов.
+        /// </param>
+        /// <exception cref="ArgumentNullException"></exception>
         public DocumentsQueue(IExternalSystemConnector externalSystemConnector)
         {
             _externalSystemConnector = externalSystemConnector ??
                                        throw new ArgumentNullException(nameof(externalSystemConnector));
-
-            StartDocumentSending += TimeCycle;
-
-            _cancelTokenSource = new CancellationTokenSource();
-            _cancellationToken = _cancelTokenSource.Token;
+            
+            _cancellationToken = new CancellationTokenSource().Token;
+            TimerProcess();
         }
         #endregion
     }

@@ -3,7 +3,7 @@ using TerraLinkTestTask.Interfaces;
 
 namespace TerraLinkTestTask.Implementations
 {
-    public class ExternalSystemConnector : IExternalSystemConnector
+    public sealed class ExternalSystemConnector : IExternalSystemConnector
     {
         /// <summary>
         /// Выполняет отправку документов во внешнюю систему.
@@ -26,7 +26,7 @@ namespace TerraLinkTestTask.Implementations
             {
                 throw new ArgumentException("Can't send more than 10 documents at once.", nameof(documents));
             }
-            // тестовая реализация, просто ничего не делаем 2 секунды
+            // тестовая реализация, просто ничего не делаем 2 секунды.
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
         }
     }

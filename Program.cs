@@ -7,6 +7,7 @@ namespace TerraLinkTestTask
     {
         static void Main(string[] args)
         {
+            // Инициализация ядра DI-контейнера.
             IKernel kernel = new StandardKernel(new NinjectRegistration());
         }
     }
