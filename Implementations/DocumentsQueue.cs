@@ -15,8 +15,7 @@ namespace TerraLinkTestTask.Implementations
         private CancellationToken _cancellationToken;
 
         private List<Document> _documentsInQueue = new(); // Документы в очереди
-        private DocumentsReport _documentsReport = new(); // Прогресс выполнения
-        public IProgress<int> Progress;
+        private IProgress<int> _progress;
         #endregion
 
         #region PROPS
@@ -55,7 +54,9 @@ namespace TerraLinkTestTask.Implementations
 
             var docsBlock = _documentsInQueue.Take(10).ToList();
             _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
-            Progress.Report(docsBlock.Count); // Увеличение прогресса
+            _progress.Report(docsBlock.Count); // Увеличение прогресса
+
+            if (_cancellationToken.IsCancellationRequested) return;
 
             // Чистка отправленных документов
             foreach (var doc in docsBlock)
@@ -104,7 +105,7 @@ namespace TerraLinkTestTask.Implementations
                                        throw new ArgumentNullException(nameof(externalSystemConnector));
             
             _cancellationToken = new CancellationTokenSource().Token;
-            Progress = new DocumentsReport();
+            _progress = new DocumentsReport();
             TimerProcess();
         }
         #endregion
