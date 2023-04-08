@@ -1,12 +1,13 @@
 ﻿using System.Reflection.Metadata;
 using TerraLinkTestTask.Interfaces;
+using TerraLinkTestTask.Models;
 
 namespace TerraLinkTestTask.Implementations
 {
     /// <summary>
     /// Класс реализации отправки документов из очереди документов через заданные промежутки времени.
     /// </summary>
-    public class DocumentsQueue : IDocumentsQueue, IDisposable, IProgress<int>
+    public class DocumentsQueue : IDocumentsQueue, IDisposable
     {
         #region PRIVATE FIELDS
         private readonly IExternalSystemConnector _externalSystemConnector;
@@ -14,6 +15,8 @@ namespace TerraLinkTestTask.Implementations
         private CancellationToken _cancellationToken;
 
         private List<Document> _documentsInQueue = new(); // Документы в очереди
+        private DocumentsReport _documentsReport = new(); // Прогресс выполнения
+        public IProgress<int> Progress;
         #endregion
 
         #region PROPS
@@ -52,6 +55,8 @@ namespace TerraLinkTestTask.Implementations
 
             var docsBlock = _documentsInQueue.Take(10).ToList();
             _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
+            Progress.Report(docsBlock.Count); // Увеличение прогресса
+
             // Чистка отправленных документов
             foreach (var doc in docsBlock)
             {
@@ -76,17 +81,10 @@ namespace TerraLinkTestTask.Implementations
         public void Dispose()
         {
             _cancelTokenSource.Cancel();
+            _documentsInQueue.Clear();
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="value"></param>
-        public void Report(int value)
-        {
-            
-        }
-
+        
 
 
 
@@ -106,6 +104,7 @@ namespace TerraLinkTestTask.Implementations
                                        throw new ArgumentNullException(nameof(externalSystemConnector));
             
             _cancellationToken = new CancellationTokenSource().Token;
+            Progress = new DocumentsReport();
             TimerProcess();
         }
         #endregion
