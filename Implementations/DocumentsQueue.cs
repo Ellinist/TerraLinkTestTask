@@ -53,7 +53,9 @@ namespace TerraLinkTestTask.Implementations
             if (_documentsInQueue.Count == 0) return;
 
             var docsBlock = _documentsInQueue.Take(10).ToList();
-            _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
+            var res = _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
+            if(res.Status != TaskStatus.RanToCompletion) return;
+
             _progress.Report(docsBlock.Count); // Увеличение прогресса
 
             if (_cancellationToken.IsCancellationRequested) return;
