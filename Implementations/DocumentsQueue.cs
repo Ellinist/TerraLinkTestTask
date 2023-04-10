@@ -60,6 +60,7 @@ namespace TerraLinkTestTask.Implementations
                 _documentsInQueue.TryDequeue(out var d);
             }
             await _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
+            if (_cancellationToken.IsCancellationRequested) return;
             _progress.Report(docsBlock.Count); // Увеличение прогресса
         }
 
