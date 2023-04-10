@@ -8,7 +8,6 @@ namespace TerraLinkTestTask.Models
         public void Report(int value)
         {
             ReportProgress += value;
-            Console.WriteLine($"{ReportProgress}");
         }
     }
 }
