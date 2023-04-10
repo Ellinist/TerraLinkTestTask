@@ -18,15 +18,16 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Потокобезопасная коллекция
         /// </summary>
-        private BlockingCollection<Document> _documentsInQueue = new();
+        private ConcurrentQueue<Document> _documentsInQueue = new();
         private IProgress<int> _progress;
+        private Task _sendTask;
         #endregion
 
         #region PROPS
         /// <summary>
         /// Интервал отправки документов.
         /// </summary>
-        public int TimerSpan { get; set; } = 5; // Для задания извне (в секундах)
+        public int TimerSpan { get; set; } = 3; // Для задания извне (в секундах)
         #endregion
 
         /// <summary>
@@ -40,7 +41,7 @@ namespace TerraLinkTestTask.Implementations
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(TimerSpan));
-                    SendProcess(_cancellationToken);
+                    _sendTask = SendProcess(_cancellationToken); // Для отслеживания выполнения
                 }
             });
         }
@@ -48,22 +49,18 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Асинхронный метод отправки документов из очереди
         /// </summary>
-        private async void SendProcess(CancellationToken token)
+        private async Task SendProcess(CancellationToken token)
         {
             if (_documentsInQueue.Count == 0) return;
 
             var docsBlock = _documentsInQueue.Take(10).ToList();
-            await _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
-
-            _progress.Report(docsBlock.Count); // Увеличение прогресса
-
-            if (_cancellationToken.IsCancellationRequested) return;
-
-            // Чистка отправленных документов
+            // Чистка отправляемых документов
             foreach (var doc in docsBlock)
             {
-                _documentsInQueue.Take();
+                _documentsInQueue.TryDequeue(out var d);
             }
+            await _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
+            _progress.Report(docsBlock.Count); // Увеличение прогресса
         }
 
         /// <summary>
@@ -74,7 +71,7 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            _documentsInQueue.Add(document);
+            _documentsInQueue.Enqueue(document);
         }
 
         /// <summary>
@@ -83,7 +80,7 @@ namespace TerraLinkTestTask.Implementations
         public void Dispose()
         {
             _cancelTokenSource.Cancel();
-            _documentsInQueue.Dispose();
+            _documentsInQueue.Clear();
         }
 
         
