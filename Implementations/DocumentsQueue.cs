@@ -100,8 +100,8 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            int counter = _documentsInQueue.Count; // Накопление поверх
-            _documentsInQueue.AddOrUpdate(counter, document, (key, doc) => doc);
+            _documentsIndex++;
+            _documentsInQueue.AddOrUpdate(_documentsIndex, document, (key, doc) => doc);
         }
 
         /// <summary>
