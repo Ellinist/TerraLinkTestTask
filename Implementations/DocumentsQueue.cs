@@ -74,7 +74,6 @@ namespace TerraLinkTestTask.Implementations
                 _documentsInQueue.Remove(element);
             }
 
-            Console.WriteLine($"{firstElements.Count}");
             _progress.Report(firstElements.Count); // Увеличение прогресса на количество отправленных документов
 
             return TaskStatus.RanToCompletion;
