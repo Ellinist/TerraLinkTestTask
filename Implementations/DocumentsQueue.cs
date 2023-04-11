@@ -21,6 +21,7 @@ namespace TerraLinkTestTask.Implementations
         private ConcurrentDictionary<int, Document> _documentsInQueue = new();
 
         private int _recordsQuantity = 10; // Количество одновременно отправляемых документов
+        private int _documentsIndex = 0; // Индекс для наполнения очереди
         private int _counterPrevValue = 0; // Счетчик для удаления уже отправленных документов
 
         private IProgress<int> _progress;
