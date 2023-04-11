@@ -16,9 +16,13 @@ namespace TerraLinkTestTask.Implementations
         private CancellationToken _cancellationToken;
 
         /// <summary>
-        /// Потокобезопасная коллекция
+        /// Потокобезопасный словарь
         /// </summary>
-        private ConcurrentQueue<Document> _documentsInQueue = new();
+        private ConcurrentDictionary<int, Document> _documentsInQueue = new();
+
+        private int _recordsQuantity = 10; // Количество одновременно отправляемых документов
+        private int _counterPrevValue = 0; // Счетчик для удаления уже отправленных документов
+
         private IProgress<int> _progress;
         private Task _sendTask;
         #endregion
@@ -41,7 +45,7 @@ namespace TerraLinkTestTask.Implementations
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(TimerSpan));
-                    _sendTask = SendProcess(_cancellationToken); // Для отслеживания выполнения
+                    _sendTask = SendProcess(_cancellationToken); // Для отслеживания выполнения через Dispose
                 }
             });
         }
@@ -53,15 +57,38 @@ namespace TerraLinkTestTask.Implementations
         {
             if (_documentsInQueue.Count == 0) return;
 
-            var docsBlock = _documentsInQueue.Take(10).ToList();
-            // Чистка отправляемых документов
-            foreach (var doc in docsBlock)
+            // Этот список можно вынести в класс и перед использованием просто чистить
+            List<Document> workDocumentsList = new(); // Рабочий список для отправки
+            int tempCounter = 0; // Внутренний счетчик наполнения списка
+            for (int i = _counterPrevValue; i < _counterPrevValue + _recordsQuantity; i++)
             {
-                _documentsInQueue.TryDequeue(out var d);
+                if (_documentsInQueue.ContainsKey(i)) // Если словарь имеет ключ
+                {
+                    workDocumentsList.Add(_documentsInQueue[i]); // Читаем документ
+                    tempCounter++; // Инкремент счетчика
+                }
             }
-            await _externalSystemConnector.SendDocuments(docsBlock, _cancellationToken);
-            if (_cancellationToken.IsCancellationRequested) return;
-            _progress.Report(docsBlock.Count); // Увеличение прогресса
+
+            // Вызов тяжелого метода отправки документов
+            await _externalSystemConnector.SendDocuments(workDocumentsList, _cancellationToken);
+
+            // Проверка на отмену операции
+            if (!_cancellationToken.IsCancellationRequested)
+            {
+                for (int i = 0; i < _recordsQuantity; i++)
+                {
+                    // Чистим часть очереди документов
+                    // В принципе, этого можно было бы и не делать, но заботимся о памяти
+                    // на случай, если документы тяжелые - с вложениями и т.д.
+                    if (!_documentsInQueue.TryRemove(_counterPrevValue + i, out var doc))
+                    {
+                        throw new Exception(); // Если не удалось удалить
+                    }
+                }
+                _counterPrevValue += _recordsQuantity; 
+
+                _progress.Report(tempCounter); // Увеличение прогресса на количество отправленных документов
+            }
         }
 
         /// <summary>
@@ -72,7 +99,8 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            _documentsInQueue.Enqueue(document);
+            int counter = _documentsInQueue.Count; // Накопление поверх
+            _documentsInQueue.AddOrUpdate(counter, document, (key, doc) => doc);
         }
 
         /// <summary>
@@ -81,7 +109,15 @@ namespace TerraLinkTestTask.Implementations
         public void Dispose()
         {
             _cancelTokenSource.Cancel();
-            _documentsInQueue.Clear();
+
+            _documentsInQueue.Clear(); // Очищаем очередь документов
+
+            // Если ввести дополнительный класс, например класс статуса отправки документов,
+            // то можно в отчете вместо дженерика int использовать этот класс
+            // Для примера в папке Models лежит такой класс.
+            // И потом проверять DocumentsReport
+
+            // Или использовать IAsyncDisposable<T>
         }
 
         

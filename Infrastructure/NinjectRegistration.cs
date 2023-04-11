@@ -11,7 +11,7 @@ namespace TerraLinkTestTask.Infrastructure
     {
         public override void Load()
         {
-            _ = Bind<IDocumentsQueue>().To<DocumentsQueue>().InTransientScope();
+            _ = Bind<IDocumentsQueue>().To<DocumentsQueue>().InSingletonScope();
             _ = Bind<IExternalSystemConnector>().To<ExternalSystemConnector>().InTransientScope();
         }
     }
