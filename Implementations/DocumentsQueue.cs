@@ -118,7 +118,7 @@ namespace TerraLinkTestTask.Implementations
             // Для примера в папке Models лежит такой класс.
             // И потом проверять DocumentsReport
 
-            // Или использовать IAsyncDisposable<T>
+            // Или использовать IAsyncDisposable
         }
 
         
