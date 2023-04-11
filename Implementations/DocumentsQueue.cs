@@ -55,7 +55,10 @@ namespace TerraLinkTestTask.Implementations
         /// </summary>
         private async Task<TaskStatus> SendProcess()
         {
-            if(_documentsInQueue.Count == 0) return TaskStatus.WaitingForActivation;
+            lock (locker)
+            {
+                if(_documentsInQueue.Count == 0) return TaskStatus.WaitingForActivation;
+            }
 
             var firstElements = _documentsInQueue.Take(_recordsQuantity).ToList();
 
@@ -67,7 +70,10 @@ namespace TerraLinkTestTask.Implementations
 
             foreach (var element in firstElements)
             {
-                _documentsInQueue.Remove(element);
+                lock (locker)
+                {
+                    _documentsInQueue.Remove(element);
+                }
             }
 
             _progress.Report(firstElements.Count); // Увеличение прогресса на количество отправленных документов
