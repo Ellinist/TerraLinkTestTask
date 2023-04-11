@@ -26,6 +26,7 @@ namespace TerraLinkTestTask.Implementations
 
         private IProgress<int> _progress;
         private Task _sendTask;
+        private object locker = new();
         #endregion
 
         #region PROPS
@@ -47,6 +48,7 @@ namespace TerraLinkTestTask.Implementations
                 {
                     await Task.Delay(TimeSpan.FromSeconds(TimerSpan));
                     var t = await SendProcess(); // Для отслеживания выполнения через Dispose
+                    Console.WriteLine($"result = {t}");
                 }
             });
         }
@@ -102,8 +104,12 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            _documentsInQueue.AddOrUpdate(topCounter, document, (key, doc) => doc);
-            topCounter++;
+            Console.WriteLine($"thread id={Thread.CurrentThread.ManagedThreadId}");
+            lock (locker)
+            {
+                _documentsInQueue.AddOrUpdate(topCounter, document, (key, doc) => doc);
+                topCounter++;
+            }
         }
 
         /// <summary>

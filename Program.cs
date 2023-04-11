@@ -29,10 +29,23 @@ namespace TerraLinkTestTask
             #region Запуск отправки документов
             // Для тестирования можно запустить в отдельном независимом потоке
             Service = kernel.Get<IDocumentsQueue>();
-            foreach (var document in documents)
+            Task.Run(() =>
             {
-                Service.Enqueue(document);
-            }
+                Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId}");
+                foreach (var document in documents)
+                {
+                    Service.Enqueue(document);
+                }
+            });
+
+            Task.Run(() =>
+            {
+                Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId}");
+                foreach (var document in documents)
+                {
+                    Service.Enqueue(document);
+                }
+            });
             #endregion
 
             Console.ReadKey();
