@@ -20,6 +20,7 @@ namespace TerraLinkTestTask.Implementations
         /// </summary>
         private ConcurrentDictionary<int, Document> _documentsInQueue = new();
 
+        private int topCounter = 1; // Счетчик для постоянного нарастания
         private int _recordsQuantity = 10; // Количество одновременно отправляемых документов
         private int _counterPrevValue = 0; // Счетчик для удаления уже отправленных документов
 
@@ -60,7 +61,7 @@ namespace TerraLinkTestTask.Implementations
             // Этот список можно вынести в класс и перед использованием просто чистить
             List<Document> workDocumentsList = new(); // Рабочий список для отправки
             int tempCounter = 0; // Внутренний счетчик наполнения списка
-            for (int i = _counterPrevValue; i < _counterPrevValue + _recordsQuantity; i++)
+            for (int i = _counterPrevValue; i <= _counterPrevValue + _recordsQuantity; i++)
             {
                 if (_documentsInQueue.ContainsKey(i)) // Если словарь имеет ключ
                 {
@@ -75,7 +76,7 @@ namespace TerraLinkTestTask.Implementations
             // Проверка на отмену операции
             if (!_cancellationToken.IsCancellationRequested)
             {
-                for (int i = 0; i < _recordsQuantity; i++)
+                for (int i = 1; i <= _recordsQuantity; i++)
                 {
                     // Чистим часть очереди документов
                     // В принципе, этого можно было бы и не делать, но заботимся о памяти
@@ -99,8 +100,8 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            int counter = _documentsInQueue.Count; // Накопление поверх
-            _documentsInQueue.AddOrUpdate(counter, document, (key, doc) => doc);
+            _documentsInQueue.AddOrUpdate(topCounter, document, (key, doc) => doc);
+            topCounter++;
         }
 
         /// <summary>
