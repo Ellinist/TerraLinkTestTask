@@ -7,6 +7,11 @@ namespace TerraLinkTestTask
 {
     internal class Program
     {
+        // Наверное из-за двух вещей ссылки не работали:
+        // 1 - не было синглтона
+        // 2 - не было статического (глобального) идентификатора сервиса
+        public static IDocumentsQueue Service;
+
         static void Main(string[] args)
         {
             // Инициализация ядра DI-контейнера.
@@ -23,14 +28,16 @@ namespace TerraLinkTestTask
 
             #region Запуск отправки документов
             // Для тестирования можно запустить в отдельном независимом потоке
-            var service = kernel.Get<IDocumentsQueue>();
+            Service = kernel.Get<IDocumentsQueue>();
             foreach (var document in documents)
             {
-                service.Enqueue(document);
+                Service.Enqueue(document);
             }
             #endregion
 
             Console.ReadKey();
         }
+
+        // Здесь можно добавлять иные классы, использующие сервис
     }
 }
