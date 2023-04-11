@@ -16,10 +16,11 @@ namespace TerraLinkTestTask
         {
             // Инициализация ядра DI-контейнера.
             IKernel kernel = new StandardKernel(new NinjectRegistration());
+            Service = kernel.Get<IDocumentsQueue>();
 
             #region Формирование коллекции документов для теста
             List<Document> documents = new();
-            for (int i = 0; i < 65; i++)
+            for (int i = 0; i < 133; i++)
             {
                 Document d = new();
                 documents.Add(d);
@@ -28,19 +29,16 @@ namespace TerraLinkTestTask
 
             #region Запуск отправки документов
             // Для тестирования можно запустить в отдельном независимом потоке
-            Service = kernel.Get<IDocumentsQueue>();
             Task.Run(() =>
             {
-                Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId}");
                 foreach (var document in documents)
                 {
                     Service.Enqueue(document);
                 }
             });
-
+            // И второй поток
             Task.Run(() =>
             {
-                Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId}");
                 foreach (var document in documents)
                 {
                     Service.Enqueue(document);
@@ -50,7 +48,5 @@ namespace TerraLinkTestTask
 
             Console.ReadKey();
         }
-
-        // Здесь можно добавлять иные классы, использующие сервис
     }
 }

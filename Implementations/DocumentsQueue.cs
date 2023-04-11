@@ -18,14 +18,16 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Потокобезопасный словарь
         /// </summary>
-        private ConcurrentDictionary<int, Document> _documentsInQueue = new();
+        //private ConcurrentDictionary<int, Document> _documentsInQueue = new();
+        private List<Document> _documentsInQueue = new();
+        private List<Document> _workDocumentsList = new();
 
-        private int topCounter = 1; // Счетчик для постоянного нарастания
+        //private int topCounter = 1; // Счетчик для постоянного нарастания
         private int _recordsQuantity = 10; // Количество одновременно отправляемых документов
-        private int _counterPrevValue = 0; // Счетчик для удаления уже отправленных документов
+        //private int _counterPrevValue = 0; // Счетчик для удаления уже отправленных документов
 
         private IProgress<int> _progress;
-        private Task _sendTask;
+        private TaskStatus _taskStatus;
         private object locker = new();
         #endregion
 
@@ -33,7 +35,7 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Интервал отправки документов.
         /// </summary>
-        public int TimerSpan { get; set; } = 2; // Для задания извне (в секундах)
+        public double TimerSpan { get; set; } = 0.5; // Для задания извне (в секундах)
         #endregion
 
         /// <summary>
@@ -47,8 +49,7 @@ namespace TerraLinkTestTask.Implementations
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(TimerSpan));
-                    var t = await SendProcess(); // Для отслеживания выполнения через Dispose
-                    Console.WriteLine($"result = {t}");
+                    _taskStatus = await SendProcess(); // Для отслеживания выполнения через Dispose
                 }
             });
         }
@@ -58,40 +59,23 @@ namespace TerraLinkTestTask.Implementations
         /// </summary>
         private async Task<TaskStatus> SendProcess()
         {
-            if (_documentsInQueue.IsEmpty) return TaskStatus.WaitingForActivation;
+            if(_documentsInQueue.Count == 0) return TaskStatus.WaitingForActivation;
 
-            // Этот список можно вынести в класс и перед использованием просто чистить
-            List<Document> workDocumentsList = new(); // Рабочий список для отправки
-            int tempCounter = 0; // Внутренний счетчик наполнения списка
-            for (int i = _counterPrevValue + 1; i <= _counterPrevValue + _recordsQuantity; i++)
-            {
-                if (_documentsInQueue.ContainsKey(i)) // Если словарь имеет ключ
-                {
-                    workDocumentsList.Add(_documentsInQueue[i]); // Читаем документ
-                    tempCounter++; // Инкремент счетчика
-                }
-            }
+            var firstElements = _documentsInQueue.Take(_recordsQuantity).ToList();
 
             // Вызов тяжелого метода отправки документов
-            await _externalSystemConnector.SendDocuments(workDocumentsList, _cancellationToken);
+            await _externalSystemConnector.SendDocuments(firstElements, _cancellationToken);
 
             // Проверка на отмену операции
             if (_cancellationToken.IsCancellationRequested) return TaskStatus.Canceled;
 
-            for (int i = _counterPrevValue + 1; i <= _counterPrevValue + tempCounter; i++)
+            foreach (var element in firstElements)
             {
-                // Чистим часть очереди документов
-                // В принципе, этого можно было бы и не делать, но заботимся о памяти
-                // на случай, если документы тяжелые - с вложениями и т.д.
-                if (!_documentsInQueue.TryRemove(i, out var doc))
-                {
-                    return TaskStatus.Faulted; // Если не удалось удалить
-                }
+                _documentsInQueue.Remove(element);
             }
 
-            _counterPrevValue += _recordsQuantity;
-
-            _progress.Report(tempCounter); // Увеличение прогресса на количество отправленных документов
+            Console.WriteLine($"{firstElements.Count}");
+            _progress.Report(firstElements.Count); // Увеличение прогресса на количество отправленных документов
 
             return TaskStatus.RanToCompletion;
         }
@@ -104,11 +88,9 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            Console.WriteLine($"thread id={Thread.CurrentThread.ManagedThreadId}");
             lock (locker)
             {
-                _documentsInQueue.AddOrUpdate(topCounter, document, (key, doc) => doc);
-                topCounter++;
+                _documentsInQueue.Add(document);
             }
         }
 
@@ -120,13 +102,6 @@ namespace TerraLinkTestTask.Implementations
             _cancelTokenSource.Cancel();
 
             _documentsInQueue.Clear(); // Очищаем очередь документов
-
-            // Если ввести дополнительный класс, например класс статуса отправки документов,
-            // то можно в отчете вместо дженерика int использовать этот класс
-            // Для примера в папке Models лежит такой класс.
-            // И потом проверять DocumentsReport
-
-            // Или использовать IAsyncDisposable
         }
 
         
