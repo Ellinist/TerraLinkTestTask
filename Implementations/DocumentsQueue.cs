@@ -32,7 +32,7 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Интервал отправки документов.
         /// </summary>
-        public int TimerSpan { get; set; } = 3; // Для задания извне (в секундах)
+        public int TimerSpan { get; set; } = 2; // Для задания извне (в секундах)
         #endregion
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace TerraLinkTestTask.Implementations
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(TimerSpan));
-                    var t = Task.Run(async () => await SendProcess()); // Для отслеживания выполнения через Dispose
+                    var t = await SendProcess(); // Для отслеживания выполнения через Dispose
                 }
             });
         }
@@ -54,14 +54,14 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Асинхронный метод отправки документов из очереди
         /// </summary>
-        private async Task SendProcess()
+        private async Task<TaskStatus> SendProcess()
         {
-            if (_documentsInQueue.Count == 0) return;
+            if (_documentsInQueue.IsEmpty) return TaskStatus.WaitingForActivation;
 
             // Этот список можно вынести в класс и перед использованием просто чистить
             List<Document> workDocumentsList = new(); // Рабочий список для отправки
             int tempCounter = 0; // Внутренний счетчик наполнения списка
-            for (int i = _counterPrevValue; i <= _counterPrevValue + _recordsQuantity; i++)
+            for (int i = _counterPrevValue + 1; i <= _counterPrevValue + _recordsQuantity; i++)
             {
                 if (_documentsInQueue.ContainsKey(i)) // Если словарь имеет ключ
                 {
@@ -74,22 +74,24 @@ namespace TerraLinkTestTask.Implementations
             await _externalSystemConnector.SendDocuments(workDocumentsList, _cancellationToken);
 
             // Проверка на отмену операции
-            if (!_cancellationToken.IsCancellationRequested)
-            {
-                for (int i = 1; i <= _recordsQuantity; i++)
-                {
-                    // Чистим часть очереди документов
-                    // В принципе, этого можно было бы и не делать, но заботимся о памяти
-                    // на случай, если документы тяжелые - с вложениями и т.д.
-                    if (!_documentsInQueue.TryRemove(_counterPrevValue + i, out var doc))
-                    {
-                        throw new Exception(); // Если не удалось удалить
-                    }
-                }
-                _counterPrevValue += _recordsQuantity; 
+            if (_cancellationToken.IsCancellationRequested) return TaskStatus.Canceled;
 
-                _progress.Report(tempCounter); // Увеличение прогресса на количество отправленных документов
+            for (int i = _counterPrevValue + 1; i <= _counterPrevValue + tempCounter; i++)
+            {
+                // Чистим часть очереди документов
+                // В принципе, этого можно было бы и не делать, но заботимся о памяти
+                // на случай, если документы тяжелые - с вложениями и т.д.
+                if (!_documentsInQueue.TryRemove(i, out var doc))
+                {
+                    return TaskStatus.Faulted; // Если не удалось удалить
+                }
             }
+
+            _counterPrevValue += _recordsQuantity;
+
+            _progress.Report(tempCounter); // Увеличение прогресса на количество отправленных документов
+
+            return TaskStatus.RanToCompletion;
         }
 
         /// <summary>
