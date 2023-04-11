@@ -46,7 +46,7 @@ namespace TerraLinkTestTask.Implementations
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(TimerSpan));
-                    _sendTask = SendProcess(_cancellationToken); // Для отслеживания выполнения через Dispose
+                    var t = Task.Run(async () => await SendProcess()); // Для отслеживания выполнения через Dispose
                 }
             });
         }
@@ -54,7 +54,7 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Асинхронный метод отправки документов из очереди
         /// </summary>
-        private async Task SendProcess(CancellationToken token)
+        private async Task SendProcess()
         {
             if (_documentsInQueue.Count == 0) return;
 
