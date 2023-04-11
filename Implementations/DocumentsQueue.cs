@@ -68,7 +68,7 @@ namespace TerraLinkTestTask.Implementations
                     tempCounter++; // Инкремент счетчика
                 }
             }
-            Console.WriteLine($"key={6}");
+
             // Вызов тяжелого метода отправки документов
             await _externalSystemConnector.SendDocuments(workDocumentsList, _cancellationToken);
 
@@ -99,9 +99,7 @@ namespace TerraLinkTestTask.Implementations
         /// </param>
         public void Enqueue(Document document)
         {
-            int counter = (_documentsInQueue.Count != 0)
-                ? _documentsInQueue.Keys.ElementAt(_documentsInQueue.Count - 1) + 1
-                : 1;
+            int counter = _documentsInQueue.Count; // Накопление поверх
             _documentsInQueue.AddOrUpdate(counter, document, (key, doc) => doc);
         }
 
