@@ -18,13 +18,9 @@ namespace TerraLinkTestTask.Implementations
         /// <summary>
         /// Потокобезопасный словарь
         /// </summary>
-        //private ConcurrentDictionary<int, Document> _documentsInQueue = new();
         private List<Document> _documentsInQueue = new();
-        private List<Document> _workDocumentsList = new();
 
-        //private int topCounter = 1; // Счетчик для постоянного нарастания
         private int _recordsQuantity = 10; // Количество одновременно отправляемых документов
-        //private int _counterPrevValue = 0; // Счетчик для удаления уже отправленных документов
 
         private IProgress<int> _progress;
         private TaskStatus _taskStatus;
